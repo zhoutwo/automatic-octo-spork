@@ -1,0 +1,59 @@
+\def\year{2018}\relax
+%File: formatting-instruction.tex
+\documentclass[letterpaper]{article} %DO NOT CHANGE THIS
+\usepackage{aaai18}  %Required
+\usepackage{times}  %Required
+\usepackage{helvet}  %Required
+\usepackage{courier}  %Required
+\usepackage{url}  %Required
+\usepackage{graphicx}  %Required
+\frenchspacing  %Required
+\setlength{\pdfpagewidth}{8.5in}  %Required
+\setlength{\pdfpageheight}{11in}  %Required
+%PDF Info Is Required:
+  \pdfinfo{
+/Title (Sentence Summarization Using a Worker-Supervisor Approach)
+/Author (Zhou Zhou)}
+\setcounter{secnumdepth}{0}  
+ \begin{document}
+% The file aaai.sty is the style file for AAAI Press 
+% proceedings, working notes, and technical reports.
+%
+\title{Sentence Summarization Using a Worker-Supervisor Approach}
+\author{Zhou Zhou\\
+Rose-Hulman Institute of Technology\\
+5500 Wabash Avenue\\
+Terre Haute, IN 47803\\
+}
+\maketitle
+\begin{abstract}
+AAAI creates proceedings, working notes, and technical reports directly from electronic source furnished by the authors. To ensure that all papers in the publication have a uniform appearance, authors must adhere to the following instructions. 
+\end{abstract}
+
+\section{Introduction}
+In recent years, the field of language modeling has seen dramatic improvements in many aspects, especially in terms of machine translation models. Recurrent Neural Networks, Long Short-Term Memory, attention module, and the encoder-decoder structure, all are part of the reasons machine translation models performing phenomenally better than before.
+
+However, it’s not just the machine translation tasks get performed better. Language modeling is essential to many Natural Language Processing tasks, one of which is sentence summarization. As there are more tools in the toolbox, significant innovations and improvements are observed in this field as well.
+
+I plan to study such techniques, and build upon them, to make a better system that can improve upon current state-of-the-art system. Specifically, I plan to train the model to learn various synonymous sentences that have different words with same meanings in them, so that the model can perform like a human - we don’t always just take words out of a sentence and concatenate them. From time to time, we interpret those words, and find a more succinct version of them to make the sentence shorter.
+
+\section{Related Work}
+The work of this research stems directly from that of Facebook researchers have done. Their first system achieved their goal using an attention-based encoder, a beam search based decoder, and a generation algorithm [9]. Later on, the researchers worked further on improving the model. First, they improved the way of training the model. Instead of training the model with ground truth data, they used generated data to train the rest of the network [11]. They also employed a “Read-Again” strategy, scanning the input two times to point the attention better. They also developed a copy mechanism to copy words from input to output, so the decoder model can have smaller vocabulary size (because rare words can be simply copied over) [12]. They pointed out that their work has been based on the work of neural machine translation methods, mostly from Bengio et al [3]. This makes it important to also consider the recent developments in the field of machine translation using neural network as well.
+
+Machine translation has been seen as a hard problem because word dependencies can be long with huge chunks of texts, and models are either stable against noise or efficiently trainable, but not both [4]. After the invention of Long Short-Term Memory, this problem was mediated because LSTM learns to map an input sentence of variable length into fixed-dimensional vector representation [1]. This allowed further innovations to follow up. Bengio et al. created a successful system using bidirectional RNN as the encoder of the input sentence [2]. However, a great breakthrough was made by Google Brain researchers, where they used A deep LSTM network with 8 encoder and 8 decoder layers using residual connections as well as attention connections from the decoder network to the encoder. This created the phenomenon of “Zero-Shot Translation”, where the model can learn to translate between language pair A and C given only data on language pair A and B and language pair B and C [5]. One potential use of this system is to transfer the encoder and the decoder as-is to the system I’m building, and only insert a layer to filter out excessive information between the encoder and decoder. To obtain ta system that can do zero-shot translation, another way to consider is to use a pivot language as the intermediate language B at training time, where the model is trained on language pair A and B, and B and C, which has also been shown to be effective [6]. Three further potential optimizations exist: 1. build a generative adversarial network where the discriminator grades the output instead of using an artificial evaluation function (such as BLEU) [7]; 2. Employ the Mixture-of-Experts layer to avoid training unused portion of the network given a specific input, reducing the training time [8]; 3. models can be augmented with a memory that maps source words that have rare occurring frequencies to their translations. This can overcome the issues of the model forgetting the words with only a few occurrences [10].
+
+\section{Model Architecture}
+We combine the idea of the popular idea of encoder-decoder architecture with a custom Read-Again strategy, and propose the worker-supervisor architecture. In this architecture, the worker produces the summarized text using the given input. This initial output is concatenated with the original input, and the combined text is then fed into the supervisor to determine whether the summary is acceptable. If the supervisor decides against this summary, the summary is then fed back into the worker so the worker can read both the original input and its own original output, and come up with a new summary, hopefully of better quality than the original. This process may repeat for a given number of times. We will describe the architecture of this architecture in details below.
+
+\subsection{Worker}
+A worker should be itself a full sequence-to-sequence model that can generate summary with or without a supervisor. As any existing text summarization model should be able to take this role, we picked Google’s GNMT model as the worker [5]. GNMT uses 8 LSTM layers with 1024 units on either side, with the encoder using residual connections and the encoder using the attention mechanism. These features have allowed GNMT to perform well in translation tasks, even between multiple language pairs. This capacity should be more than enough to take on the summarization task, which is between one language pair in which both the source language and the target language are the same.
+
+\subsection{Supervisor}
+A supervisor should also be an RNN to be able to read a sequence with arbitrary length. It can be simpler than the worker though, as it does not need to generate text outputs. Instead, it should generate a score to describe how much it thinks a concatenated text contains an acceptable summary. We used 8 normally-stacked LSTM layers with 1024 units and a fully connected layer connected to the last layer. The fully connected layer has only one output, and uses the sigmoid function as its activation function to guarantee an output between 0 and 1.
+
+\subsection{Embedding}
+Embedding layers are used to convert each text token (in the form of an integer value) into a vector of some representation []. This process takes place before the input is fed into the encoder, the decoder, and the supervisor. A well trained embedding would generate the representation based on the meaning of the word, so sometimes it would place synonyms in spatially close locations. In a machine translation task, separate embeddings are used by the encoder and the decoder, so one may naturally question, since we are using the same source and target language, do we need two embeddings or one? We decided to go with two embeddings, because the task of the decoder is significantly different from the encoder, and it might need different information from its inputs.\cite{Stark04}
+
+\bibliography{References}
+\bibliographystyle{aaai}
+\end{document}
