@@ -74,6 +74,15 @@ The way to run the model is different than training because we allow the worker 
 \end{itemize}
 
 \section{Environment Setup}
+We used the Annotated English Gigaword corpus [] as the training dataset, and DUC 2003 and 2004 as the evaluation set. We followed the same preprocessing step as in the published NAMAS project []. We selected this preprocessing method because it has built-in tokenization and filters out bad article titles that do not constitute a summary of the first sentence of that article.
+
+We selected the GNMT system built as the worker, and a multi-layer RNN with a fully-connected layer at the end as the supervisor. The worker is built with TensorFlow and the supervisor is built using Keras with a TensorFlow backend. The encoder and decoder of GNMT and the supervisor have 8 layers of LSTM cells. We selected the batch size as 8 and spread the model across 8 GPUs. When concatenating sentences, we chose to retain the SOS token and the EOS token, because we thought these were clues for the encoder to realize this is a rework of a summarized sentence. During inference, we selected the rework threshold to be 0.5 and the maximum retries to be 10.
+
+\section{Results}
+
+\section{Discussions}
+
+\section{Conclusion}
 
 \bibliography{References}
 \bibliographystyle{aaai}
