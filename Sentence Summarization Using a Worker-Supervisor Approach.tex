@@ -127,7 +127,7 @@ Overall, due to time and resource constraint, the 5 systems are trained with dif
 \subsection{DUC-2003}
 The ROUGE 2.0 evaluation of DUC-2003 yields the results in Table~\ref{table:rougeduc2003}. The name "WS-N Source" refers to the n-th setup of the Worker-Supervisor model decoding with only the source sentence, which is also the initial summary. Likewise, "WS-N Concat" refers to n-th setup of the Worker-Supervisor model decoding with concatenated source sentence and initial summary. The baseline NAMAS model performs better than all other systems, followed by WS-1 with source only.
 
-\begin{table}[htb]
+\begin{table}[h]
 	\begin{tabular}{c c c c}
 		Model & ROUGE-1 & ROUGE-2 & ROUGE-L \\
 		\hline
@@ -147,7 +147,7 @@ The ROUGE 2.0 evaluation of DUC-2003 yields the results in Table~\ref{table:roug
 
 There are some sample summaries from this task:
 
-\begin{table}[htb]
+\begin{table}[h]
 	\begin{tabular}{p{40pt} p{170pt}}
 		Source & fbi director louis freeh , believing his agency 's credibility is in question , wants someone from outside the bureau to examine whether his agents helped set the deadly blaze at the branch davidian compound near waco in 1993 , an agency spokesman said tuesday .\\
 		\hline
@@ -172,7 +172,7 @@ There are some sample summaries from this task:
 \subsection{DUC-2004}
 The ROUGE 2.0 evaluation of DUC-2004 yields the results in Table~\ref{table:rougeduc2004}. Like the result for DUC-2003, the baseline NAMAS model performs better than all other systems, followed by WS-1 with source only.
 
-\begin{table}[htb]
+\begin{table}[h]
 	\begin{tabular}{c c c c}
 		Model & ROUGE-1 & ROUGE-2 & ROUGE-L \\
 		\hline
@@ -192,7 +192,7 @@ The ROUGE 2.0 evaluation of DUC-2004 yields the results in Table~\ref{table:roug
 
 There are some sample summaries from this task:
 
-\begin{table}[htb]
+\begin{table}[h]
 	\begin{tabular}{p{40pt} p{170pt}}
 		Source & king norodom sihanouk has declined requests to chair a summit of cambodia 's top political leaders , saying the meeting would not bring any progress in deadlocked negotiations to form a government . \\
 		\hline
@@ -215,6 +215,15 @@ There are some sample summaries from this task:
 \end{table}
 
 \section{Discussions}
+Overall, the evaluation results have shown that the GNMT system and the WS systems based on it failed to generate better summaries than the NAMAS system. NAMAS yield the top scores in all ROUGE metrics for both DUC-2003 and DUC-2004 summarization tasks. Furthermore, it was hard to determine whether the failure results from the weakness of the GNMT system with respect to the text summarization task. The pure GNMT model was significantly under-trained, so even though it did not generate better summaries than NAMAS, the reason can be considered mainly due to lack of training time, rather than the difference in the architectures.
+
+Furthermore, reattempting the summary did not yield better results either. From the evaluation results, ROUGE scores dropped when the model was run on the concatenated sentence. In fact, this trend keeps going with more retries (TODO add figure). During the later retries, within a combined sentence, only the summary portion was replaced with the summary from the last attempt, so the total length did not necessarily grow with more attempts. Therefore, this ineffectiveness should probably be caused by the weakness of the architecture rather than a growing input sentence.
+
+There are a few characteristics with the generated summaries that are worth noting too. In both examples above, the NAMAS system tends to focus on the wrong aspect of the source sentence, or just omit too much in formation. In the first example, all human summarizers focused on the independent investigation on FBI operation, but the NAMAS system focused on the "questioning" of the incident, which was more of a reason explaining the need of independent investigation. In the second example, the NAMAS system omitted entirely the objects of the meeting - top leaders in Cambodia, effectively resulting in a lack of important information.
+
+Looking back at the summaries that GNMT and WS system produced, it is interesting that these models seems to not remember the "hard knowledge". In the second example, GNMT related King Sihanouk to Philippine, WS-1 related him to India, WS-2 related him to Nepal, and WS-3 related him to Malaysia, whereas his true nationality was Cambodia. On the contrary, NAMAS avoided summarizing this by just using the name "King Sihanouk". Although it was shown that the GNMT models understood that King Sihanouk was a leader of a country, they failed to associate him with the correct country.
+
+Specifically with the concatenation technique, it seemed that the model output was more strongly affected by the later portion of the input, which may have led to worse reattempted summaries. This problem manifested itself with the WS-1 system in first example. After the initial summary made a mistake about "out of oil", the reattempt outputted "bp" as the subject of the sentence, completely ignoring the original subject, which was the FBI director. Other researchers have reported that LSTM would honor closer words more than farther words [], which led to the invention of Bi-Directional LSTM. This could be the reason that having "oil" has the last word of the sentence led to the mentioning of BP, a fuel company.
 
 \section{Conclusion}
 
