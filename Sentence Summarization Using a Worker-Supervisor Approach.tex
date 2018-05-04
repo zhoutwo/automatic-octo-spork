@@ -72,20 +72,29 @@ We train the model with the following procedure:
 	\item These sentences are concatenated with their source sentences, then sent to the supervisor with a score of 0.01.
 	\item These sentences are paired up with the actual target sentences, and then sent to the worker to train it.
 \end{itemize}
+
 For instance, if one sentence pair in the dataset is the following:
+
 \begin{center}
-	source: a yale school of medicine study is expanding upon what scientists know about the link between schizophrenia and nicotine addiction .\\
-	target: researchers examining evidence of link between schizophrenia and nicotine addiction
+	\begin{tabular}{p{40pt} p{170pt}}
+		Source & a yale school of medicine study is expanding upon what scientists know about the link between schizophrenia and nicotine addiction . \\
+		Target & researchers examining evidence of link between schizophrenia and nicotine addiction
+	\end{tabular}
 \end{center}
 
 We first train the worker on this sentence pair. Then we run the worker to generate a summary of the source sentence:
 \begin{center}
-	summary: yale study links schizophrenia
+	\begin{tabular}{p{40pt} p{170pt}}
+		Summary & yale study links schizophrenia
+	\end{tabular}
 \end{center}
-We then concatenate this sentence with the source sentence, with a start of sentence token in-between to mark the start of the summary. Then we have created this training sentence pair (<sos> denotes the start of sentence token):\\
+
+We then concatenate this sentence with the source sentence, with a start of sentence token in-between to mark the start of the summary. Then we have created this training sentence pair ($<$sos$>$ denotes the start of sentence token):
 \begin{center}
-	source: a yale school of medicine study is expanding upon what scientists know about the link between schizophrenia and nicotine addiction . <sos> yale study links schizophrenia\\
-	target: researchers examining evidence of link between schizophrenia and nicotine addiction
+	\begin{tabular}{p{40pt} p{170pt}}
+		Source & a yale school of medicine study is expanding upon what scientists know about the link between schizophrenia and nicotine addiction . $<$sos$>$ yale study links schizophrenia\\
+		Target & researchers examining evidence of link between schizophrenia and nicotine addiction
+	\end{tabular}
 \end{center}
 
 Then we train the worker again with this sentence pair. After both sentence pairs have been trained on the worker, we move on to the next sentence pair in the dataset.
@@ -100,11 +109,110 @@ The way to run the model is different than training because we allow the worker 
 \end{itemize}
 
 \section{Environment Setup}
-We used the Annotated English Gigaword corpus \cite{napoles2012annotated} as the training dataset, and DUC 2003 and 2004 as the evaluation set. We followed the same preprocessing step as in the published NAMAS project \cite{rush2015neural}. We selected this preprocessing method because it has built-in tokenization and filters out bad article titles that do not constitute a summary of the first sentence of that article.
+We used the Annotated English Gigaword corpus \cite{napoles2012annotated} as the training dataset, and DUC-2003 and DUC-2004 summarization tasks \cite{over2007duc} as the evaluation set. We followed the same preprocessing step as in the published NAMAS project \cite{rush2015neural}. We selected this preprocessing method because it has built-in tokenization and filters out bad sentence pairs that do not constitute a summary of the first sentence of that article.
 
 We selected the GNMT system built as the worker, and a multi-layer RNN with a fully-connected layer at the end as the supervisor. The worker is built with TensorFlow and the supervisor is built using Keras with a TensorFlow backend. The encoder and decoder of GNMT and the supervisor have 8 layers of LSTM cells. We selected the batch size as 8 and spread the model across 8 GPUs. When concatenating sentences, we chose to retain the SOS token and the EOS token, because we thought these were clues for the encoder to realize this is a rework of a summarized sentence. During inference, we selected the rework threshold to be 0.5 and the maximum retries to be 10.
 
+We also other adjustments to tailor the system to the summarization task. We configured the model to use a shared vocabulary for both its encoder and decoder in order to reflect the idea that text summarization is comparable to a translation task from the source language to itself. Nonetheless, we decided to keep the embedding for the encoder and decoder to be separate, because a word should be able to convert into different vectors during encoding time and decoding time, because the nature of encoding and decoding are different.
+
+During the initial training, we noticed that the training loss on concatenated source sentence decreased more rapidly than the loss on original source sentences. This is not beneficial because without a reasonable summary of the original source, the concatenation of source and summary does not provide more information than just the source itself. Therefore, we introduced a delay for the start of training with concatenated sentences. To address the rapid decrease of training loss with concatenated sentences more directly, we implemented a training guard which, when enabled, only trains the model with concatenated sentences when its last training loss is at least 2/3 of the training loss on original source sentences. Lastly, in order to compare the effect of delaying the training of the supervisor on the supervisor performance, we implemented a configurable delay of starting the training of the supervisor as well.
+
+We prepared 5 systems for later evaluation. We use the NAMAS system as the baseline. NAMAS is trained with batch size of 64, embedding dimension of 64, Bag-of-Words dimension of 64, 64 LSTM cells per layer, initial learning rate of 0.1, and 20 epochs to reflect the reported setup in the original report \cite{rush2015neural}. The modified GNMT system has 8 layers, each with 1024 LSTM cells, and a batch size of 64. We tested 3 sets of hyper-parameters using the Worker-Supervisor architecture, which are: 1. with the training guard enabled, start training with concatenated sentences at step 500, and start training the supervisor at step 200; 2. with the training guard enabled, start training with concatenated sentences at step 100, and start training the supervisor from the beginning; 3. with the training guard enabled, start training with concatenated sentences at step 10,000, and start training the supervisor at step 10,200. These will be referred to as WS-1, WS-2, and WS-3.
+
 \section{Results}
+We used the ROUGE 2.0 system \cite{ganesan2015rouge} to evaluate our outputs with summaries produced by human summarizers. By default, this system evaluates with ROUGE-N (N-gram based) andROUGE-L (summary level LCS). More specifically, ROUGE-N includes unigram (ROUGE-1) and bigram (ROUGE-2) . We will report the results for all the above metrics on the DUC-2003 and DUC-2004 summarization tasks separately.
+
+Overall, due to time and resource constraint, the 5 systems are trained with different number of steps. NAMAS finished training 15 epochs. GNMT finished training 6,900 steps. WS-1 finished training 21,3500 steps. WS-2 finished training 20,9300 steps. Lastly, WS-3 finished training 11,0600 steps.
+
+\subsection{DUC-2003}
+The ROUGE 2.0 evaluation of DUC-2003 yields the results in Table~\ref{table:rougeduc2003}. The name "WS-N Source" refers to the n-th setup of the Worker-Supervisor model decoding with only the source sentence, which is also the initial summary. Likewise, "WS-N Concat" refers to n-th setup of the Worker-Supervisor model decoding with concatenated source sentence and initial summary. The baseline NAMAS model performs better than all other systems, followed by WS-1 with source only.
+
+\begin{table}[htb]
+	\begin{tabular}{c c c c}
+		Model & ROUGE-1 & ROUGE-2 & ROUGE-L \\
+		\hline
+		GNMT & 14.61 & 1.570 & 11.204 \\
+		WS-1 Source & 28.650 & 4.158 & 27.94 \\
+		WS-1 Concat & 22.411 & 3.012 & 23.557 \\
+		WS-2 Source & 26.257 & 3.986 & 24.742 \\
+		WS-2 Concat & 21.435 & 2.851 & 20.224 \\
+		WS-3 Source & 20.273 & 2.215 & 18.112 \\
+		WS-3 Concat & 1.882 & 0.151 & 2.541 \\
+		\hline
+		NAMAS & 39.228 & 9.183 & 39.903
+	\end{tabular}
+	\caption{ROUGE 2.0 evaluation results on DUC-2003 summarization task}
+	\label{table:rougeduc2003}
+\end{table}
+
+There are some sample summaries from this task:
+
+\begin{table}[htb]
+	\begin{tabular}{p{40pt} p{170pt}}
+		Source & fbi director louis freeh , believing his agency 's credibility is in question , wants someone from outside the bureau to examine whether his agents helped set the deadly blaze at the branch davidian compound near waco in 1993 , an agency spokesman said tuesday .\\
+		\hline
+		GNMT & $<$unk$>$  $<$unk$>$  $<$unk$>$ $<$unk$>$  to be $<$unk$>$ \\
+		WS-1 Source & fbi chief says he is out of deadly oil \\
+		WS-1 Concat & bp says it is out of oil spill \\
+		WS-2 Source & after \#\# years of $<$unk$>$ $<$unk$>$ \\
+		WS-2 Concat & fbi chief says he is not a $<$unk$>$ \\
+		WS-3 Source & man 's death of the death of the death \\
+		WS-3 Concat & $<$unk$>$  $<$unk$>$  $<$unk$>$  to death $<$unk$>$  \\
+		NAMAS & fbi director says waco questioned \\
+		\hline
+		Ref 1 & FBI Director wants independent investigation of deadly Waco blaze.\\
+		Ref 2 & Director wants outside investigation of FBI's role in Waco fire.\\
+		Ref 3 & FBI director calls for independent investigation of Waco incident.\\
+		Ref 4 & FBI director asks for independent probe of Waco; congress seeking evidence
+	\end{tabular}
+	\caption{Sample summaries on DUC-2003 summarization task}
+	\label{table:sampleduc2003}
+\end{table}
+
+\subsection{DUC-2004}
+The ROUGE 2.0 evaluation of DUC-2004 yields the results in Table~\ref{table:rougeduc2004}. Like the result for DUC-2003, the baseline NAMAS model performs better than all other systems, followed by WS-1 with source only.
+
+\begin{table}[htb]
+	\begin{tabular}{c c c c}
+		Model & ROUGE-1 & ROUGE-2 & ROUGE-L \\
+		\hline
+		GNMT & 18.815 & 2.619 & 12.088 \\
+		WS-1 Source & 34.613 & 6.061 & 30.515 \\
+		WS-1 Concat & 27.431 & 4.225 & 25.742 \\
+		WS-2 Source & 30.969 & 4.656 & 27.895 \\
+		WS-2 Concat & 25.516 & 3.618 & 22.618 \\
+		WS-3 Source & 23.369 & 3.410 & 19.324 \\
+		WS-3 Concat & 2.985 & 0.063 & 2.648 \\
+		\hline
+		NAMAS & 40.190 & 9.730& 39.074
+	\end{tabular}
+	\caption{ROUGE 2.0 evaluation results on DUC-2004 summarization task}
+	\label{table:rougeduc2004}
+\end{table}
+
+There are some sample summaries from this task:
+
+\begin{table}[htb]
+	\begin{tabular}{p{40pt} p{170pt}}
+		Source & king norodom sihanouk has declined requests to chair a summit of cambodia 's top political leaders , saying the meeting would not bring any progress in deadlocked negotiations to form a government . \\
+		\hline
+		GNMT & philippine 's new talks to end talks in talks \\
+		WS-1 Source & indian pm says no change of political crisis \\
+		WS-1 Concat & indian pm says no crisis talks to end crisis \\
+		WS-2 Source & nepal 's top party holds to end political political \\
+		WS-2 Concat & nepal 's party to hold political political parties \\
+		WS-3 Source & malaysia 's party minister to hold talks with political \\
+		WS-3 Concat & $<$unk$>$ $<$unk$>$ to $<$unk$>$ $<$unk$>$ to $<$unk$>$ $<$unk$>$ \\
+		NAMAS & king sihanouk refuses to meet \\
+		\hline
+		Ref 1 & Sihanouk refuses to chair Cambodian political summit at home or abroad\\
+		Ref 2 & Sihanouk refuses to host talks of Cambodian political leaders in Beijing.\\
+		Ref 3 & Efforts to form a government deadlocked, Sihanouk will not chair summit\\
+		Ref 4 & Norodom Sihanouk declines role to mediate in Cambodian governmental crisis
+	\end{tabular}
+	\caption{Sample summaries on DUC-2004 summarization task}
+	\label{table:sampleduc2004}
+\end{table}
 
 \section{Discussions}
 
