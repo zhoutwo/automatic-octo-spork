@@ -76,24 +76,24 @@ We train the model with the following procedure:
 For instance, if one sentence pair in the dataset is the following:
 
 \begin{center}
-	\begin{tabular}{p{40pt} p{170pt}}
-		Source & a yale school of medicine study is expanding upon what scientists know about the link between schizophrenia and nicotine addiction . \\
-		Target & researchers examining evidence of link between schizophrenia and nicotine addiction
+	\begin{tabular}{p{57pt} p{170pt}}
+		Source & a yale school of medicine study is expanding upon what scientists know about the link between schizophrenia and nicotine addiction .\\
+		Truth Target & researchers examining evidence of link between schizophrenia and nicotine addiction
 	\end{tabular}
 \end{center}
 
 We first train the worker on this sentence pair. Then we run the worker to generate a summary of the source sentence:
 \begin{center}
-	\begin{tabular}{p{40pt} p{170pt}}
-		Summary & yale study links schizophrenia
+	\begin{tabular}{p{57pt} p{170pt}}
+		Model Output & yale study links schizophrenia
 	\end{tabular}
 \end{center}
 
 We then concatenate this sentence with the source sentence, with a start of sentence token in-between to mark the start of the summary. Then we have created this training sentence pair ($<$sos$>$ denotes the start of sentence token):
 \begin{center}
-	\begin{tabular}{p{40pt} p{170pt}}
-		Source & a yale school of medicine study is expanding upon what scientists know about the link between schizophrenia and nicotine addiction . $<$sos$>$ yale study links schizophrenia\\
-		Target & researchers examining evidence of link between schizophrenia and nicotine addiction
+	\begin{tabular}{p{57pt} p{170pt}}
+		New Source & a yale school of medicine study is expanding upon what scientists know about the link between schizophrenia and nicotine addiction . $<$sos$>$ yale study links schizophrenia\\
+		Truth Target & researchers examining evidence of link between schizophrenia and nicotine addiction
 	\end{tabular}
 \end{center}
 
@@ -125,13 +125,12 @@ We used the ROUGE 2.0 system \cite{ganesan2015rouge} to evaluate our outputs wit
 Overall, due to time and resource constraint, the 5 systems are trained with different number of steps. NAMAS finished training 15 epochs. GNMT finished training 6,900 steps. WS-1 finished training 21,3500 steps. WS-2 finished training 20,9300 steps. Lastly, WS-3 finished training 11,0600 steps.
 
 \subsection{DUC-2003}
-The ROUGE 2.0 evaluation of DUC-2003 yields the results in Table~\ref{table:rougeduc2003}. The name "WS-N Source" refers to the n-th setup of the Worker-Supervisor model decoding with only the source sentence, which is also the initial summary. Likewise, "WS-N Concat" refers to n-th setup of the Worker-Supervisor model decoding with concatenated source sentence and initial summary. The baseline NAMAS model performs better than all other systems, followed by WS-1 with source only.
+The ROUGE 2.0 evaluation of DUC-2003 yields the results in Table~\ref{table:rougeduc2003}. The name "WS-N Source" refers to the n-th setup of the Worker-Supervisor model decoding with only the source sentence, which is also the initial summary. Likewise, "WS-N Concat" refers to n-th setup of the Worker-Supervisor model decoding with concatenated source sentence and initial summary. Furthermore, "RA" refers to the Read-Again baseline, and "RS" refers to the Reversed-Source setup. The baseline NAMAS model performs better than all other systems, followed by WS-1 with source only.
 
 \begin{table}[h]
 	\begin{tabular}{c c c c}
 		Model & ROUGE-1 & ROUGE-2 & ROUGE-L \\
 		\hline
-		GNMT & 32.789 & 5.909 & 33.58 \\
 		WS-1 Source & 28.650 & 4.158 & 27.94 \\
 		WS-1 Concat & 22.411 & 3.012 & 23.557 \\
 		WS-2 Source & 26.257 & 3.986 & 24.742 \\
@@ -139,7 +138,12 @@ The ROUGE 2.0 evaluation of DUC-2003 yields the results in Table~\ref{table:roug
 		WS-3 Source & 20.273 & 2.215 & 18.112 \\
 		WS-3 Concat & 1.882 & 0.151 & 2.541 \\
 		\hline
-		NAMAS & 39.228 & 9.183 & 39.903
+		NAMAS & 39.228 & 9.183 & 39.903 \\
+		GNMT & 32.789 & 5.909 & 33.580 \\
+		RA Source & 34.143 & 6.611 & 34.931 \\
+		RA Concat & 37.208 & 7.667 & 37.233 \\
+		RS Source & 37.207 & 7.474 & 36.924 \\
+		RS Concat & 37.856 & 7.544 & 37.467 \\
 	\end{tabular}
 	\caption{ROUGE 2.0 evaluation results on DUC-2003 summarization task}
 	\label{table:rougeduc2003}
@@ -151,7 +155,6 @@ There are some sample summaries from this task:
 	\begin{tabular}{p{40pt} p{170pt}}
 		Source & fbi director louis freeh , believing his agency 's credibility is in question , wants someone from outside the bureau to examine whether his agents helped set the deadly blaze at the branch davidian compound near waco in 1993 , an agency spokesman said tuesday .\\
 		\hline
-		GNMT & fbi director says fbi 's role in cia probe \\
 		WS-1 Source & fbi chief says he is out of deadly oil \\
 		WS-1 Concat & bp says it is out of oil spill \\
 		WS-2 Source & after \#\# years of $<$unk$>$ $<$unk$>$ \\
@@ -159,6 +162,11 @@ There are some sample summaries from this task:
 		WS-3 Source & man 's death of the death of the death \\
 		WS-3 Concat & $<$unk$>$  $<$unk$>$  $<$unk$>$  to death $<$unk$>$  \\
 		NAMAS & fbi director says waco questioned \\
+		GNMT & fbi director says fbi 's role in cia probe \\
+		RA Source & fbi chief says fbi has n't been a $<$unk$>$ \\
+		RA Concat & fbi director wants fbi to investigate fbi \\
+		RS Source & fbi director wants fbi to investigate fbi \\
+		RS Concat & fbi director wants fbi to investigate fbi \\
 		\hline
 		Ref 1 & FBI Director wants independent investigation of deadly Waco blaze.\\
 		Ref 2 & Director wants outside investigation of FBI's role in Waco fire.\\
@@ -176,7 +184,6 @@ The ROUGE 2.0 evaluation of DUC-2004 yields the results in Table~\ref{table:roug
 	\begin{tabular}{c c c c}
 		Model & ROUGE-1 & ROUGE-2 & ROUGE-L \\
 		\hline
-		GNMT & 40.19 & 8.021 & 37.443 \\
 		WS-1 Source & 34.613 & 6.061 & 30.515 \\
 		WS-1 Concat & 27.431 & 4.225 & 25.742 \\
 		WS-2 Source & 30.969 & 4.656 & 27.895 \\
@@ -184,7 +191,12 @@ The ROUGE 2.0 evaluation of DUC-2004 yields the results in Table~\ref{table:roug
 		WS-3 Source & 23.369 & 3.410 & 19.324 \\
 		WS-3 Concat & 2.985 & 0.063 & 2.648 \\
 		\hline
-		NAMAS & 40.190 & 9.730& 39.074
+		NAMAS & 40.190 & 9.730& 39.074 \\
+		GNMT & 40.19 & 8.021 & 37.443 \\
+		RA Source & 42.928 & 10.089 & 40.25 \\
+		RA Concat & 40.236 & 9.266 & 37.578 \\
+		RS Source & 44.007 & 9.931 & 40.579 \\
+		RS Concat & 41.67 & 9.425 & 37.131 \\
 	\end{tabular}
 	\caption{ROUGE 2.0 evaluation results on DUC-2004 summarization task}
 	\label{table:rougeduc2004}
@@ -196,7 +208,6 @@ There are some sample summaries from this task:
 	\begin{tabular}{p{40pt} p{170pt}}
 		Source & king norodom sihanouk has declined requests to chair a summit of cambodia 's top political leaders , saying the meeting would not bring any progress in deadlocked negotiations to form a government . \\
 		\hline
-		GNMT & king $<$unk$>$ cambodia 's top leaders \\
 		WS-1 Source & indian pm says no change of political crisis \\
 		WS-1 Concat & indian pm says no crisis talks to end crisis \\
 		WS-2 Source & nepal 's top party holds to end political political \\
@@ -204,6 +215,11 @@ There are some sample summaries from this task:
 		WS-3 Source & malaysia 's party minister to hold talks with political \\
 		WS-3 Concat & $<$unk$>$ $<$unk$>$ to $<$unk$>$ $<$unk$>$ to $<$unk$>$ $<$unk$>$ \\
 		NAMAS & king sihanouk refuses to meet \\
+		GNMT & king $<$unk$>$ cambodia 's top leaders \\
+		RA Source & king sihanouk declines to chair of cambodia 's top political leaders \\
+		RA Concat & king sihanouk <unk> cambodia 's king \\
+		RS Source & king sihanouk denies cambodia 's top political leaders \\
+		RS Concat & king <unk> cambodia 's top political leaders \\
 		\hline
 		Ref 1 & Sihanouk refuses to chair Cambodian political summit at home or abroad\\
 		Ref 2 & Sihanouk refuses to host talks of Cambodian political leaders in Beijing.\\
@@ -229,6 +245,10 @@ Specifically with the concatenation technique, it seemed that the model output w
 It has been seen that the proposed Worker-Supervisor architecture with concatenation is not more effective compared to the existing systems. However, based on the result obtained in the evaluations, we think there are ways to potentially improve the model.
 
 In order to address the issue where the LSTM honors words that appear later in the sentence than those that appear earlier, it is possible that by reversing the order of the source and the summary.
+
+Although neural machine translation models are similar to text summarization models, special designs can still bring improvements
+Can try reversing the order of concatenation (i.e. Summary + Source instead of Source + Summary)
+Have separate model handles Source and Source + Summary, then use the supervisor to select the better summary
 
 \bibliography{References}
 \bibliographystyle{aaai}
