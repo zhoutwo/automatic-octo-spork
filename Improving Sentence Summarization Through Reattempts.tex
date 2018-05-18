@@ -58,7 +58,7 @@ A supervisor should also be an RNN to be able to read a sequence with arbitrary 
 Embedding layers are used to convert each text token (in the form of an integer value) into a vector of some representation []. This process takes place before the input is fed into the encoder, the decoder, and the supervisor. A well trained embedding would generate the representation based on the meaning of the word, so sometimes it would place synonyms in spatially close locations. In a machine translation task, separate embeddings are used by the encoder and the decoder, so one may naturally question, since we are using the same source and target language, do we need two embeddings or one? We decided to go with two embeddings, because the task of the decoder is significantly different from the encoder, and it might need different information from its inputs.
 
 \begin{figure}[h]
-	\includegraphics[scale=0.2]{architecture}
+	\includegraphics[scale=0.25]{architecture}
 	\centering
 	\caption{The worker-supervisor architecture}
 \end{figure}
