@@ -111,7 +111,7 @@ The way to run the model is different than training because we allow the worker 
 \section{Environment Setup}
 We used the Annotated English Gigaword corpus \cite{napoles2012annotated} as the training dataset, and DUC-2003 and DUC-2004 summarization tasks \cite{over2007duc} as the evaluation set. We followed the same preprocessing step as in the published NAMAS project \cite{rush2015neural}. We selected this preprocessing method because it has built-in tokenization and filters out bad sentence pairs that do not constitute a summary of the first sentence of that article.
 
-We selected the GNMT system as the worker, and a multi-layer RNN with a fully-connected layer at the end as the supervisor. GNMT was originally built for the machine learning task, and its architecture is shown in Figure~\ref{fig:gnmt}. It features "residual connections" between LSTM layers. Residual connections are the summation of two consecutive layers' outputs, so that among every three consecutive layers, the input to the third layer is the sum of the output from the first two layers. It also uses three fully connected layers for the attention mechanism. This model has achieved great results with the translation task and is the underlying architecture of the Google Translate service inproduction. In our experiment, the worker was with TensorFlow and the supervisor is built using Keras with a TensorFlow backend. The encoder and decoder of GNMT and the supervisor have 8 layers of LSTM cells. We selected the batch size as 8 and spread the model across 8 GPUs. When concatenating sentences, we chose to retain the start-of-sentence token and the end-of-sentence token, because we thought these were clues for the encoder to realize this is a rework of a summarized sentence.
+We selected the GNMT system as the worker, and a multi-layer RNN with a fully-connected layer at the end as the supervisor. GNMT was originally built for the machine learning task, and its architecture is shown in Figure~\ref{fig:gnmt}. It features "residual connections" between LSTM layers. Residual connections are the summation of two consecutive layers' outputs, so that among every three consecutive layers, the input to the third layer is the sum of the output from the first two layers. It also uses three fully connected layers for the attention mechanism. This model has achieved great results with the translation task and is the underlying architecture of the Google Translate service in production.
 
 \begin{figure}[h]
 	\includegraphics[scale=0.355]{GNMT}
@@ -122,11 +122,25 @@ We selected the GNMT system as the worker, and a multi-layer RNN with a fully-co
 
 We also tailored the system to the summarization task. We configured the model to use a shared vocabulary for both its encoder and decoder in order to reflect the idea that text summarization is comparable to a translation task from the source language to itself. Nonetheless, we decided to keep the embedding for the encoder and decoder to be separate, because a word should be able to convert into different vectors during encoding time and decoding time, because the nature of encoding and decoding are different.
 
-During the initial training, we noticed that the training loss on concatenated source sentence decreased more rapidly than the loss on original source sentences. This is not beneficial because without a reasonable summary of the original source, the concatenation of source and summary does not provide more information than just the source itself. Therefore, we introduced a delay for the start of training with concatenated sentences. To address the rapid decrease of training loss with concatenated sentences more directly, we implemented a training guard which, when enabled, only trains the model with concatenated sentences when its last training loss is at least 2/3 of the training loss on original source sentences. Lastly, in order to compare the effect of delaying the training of the supervisor on the supervisor performance, we implemented a configurable delay of starting the training of the supervisor as well.
+\begin{figure}[h]
+	\includegraphics[scale=0.3]{worker_loss_before}
+	\centering
+	\caption{TensorBoard \cite{tensorflow2015-whitepaper} plotted worker loss before applying modifications to the training routine}
+	\label{fig:workerlossbefore}
+\end{figure}
+
+During the initial training, we noticed that the training loss on concatenated source sentence decreased more rapidly than the loss on original source sentences while the loss on the later does not decrease after a certain number of steps, as shown in Figure~\ref{fig:workerlossbefore}. This is not beneficial because without a reasonable summary of the original source, the concatenation of source and summary does not provide more information than just the source itself. Therefore, we introduced a delay for the start of training with concatenated sentences. To address the rapid decrease of training loss with concatenated sentences more directly, we implemented a training guard which, when enabled, only trains the model with concatenated sentences when its last training loss is at least 2/3 of the training loss on original source sentences. Lastly, in order to compare the effect of delaying the training of the supervisor on the supervisor performance, we implemented a configurable delay of starting the training of the supervisor as well. After applying these techniques, we were pleased to see that the loss on both types of inputs are decreasing at a reasonable rate over time, as shown in Figure~\ref{fig:workerlossafter}.
+
+\begin{figure}[h]
+	\includegraphics[scale=0.3]{worker_loss_after}
+	\centering
+	\caption{TensorBoard plotted worker loss after using various setup of modifications to the training routine}
+	\label{fig:workerlossafter}
+\end{figure}
 
 We prepared 5 systems for later evaluation. We use the NAMAS system as the baseline created by \cite{rush2015neural}, whose architecture is shown in Figure~\ref{fig:namas}. NAMAS is specially constructed for the DUC text summarization task, which we also used as the evaluation task. It features a smaller architecture than that of GNMT. It only uses one fully-connected layer for the attention mechanism, and does not use residual connections. However, it uses a beam search decoder rather than a greedy one. A greedy decoder picks the word with highest probability at each decoding step, but the beam search algorithm keeps k candidates with top probabilities, and keep finishing decoding using each of the candidates, so it produces the highest combined probability of the entire sentence. Moreover, the researchers at Facebook used Z-Mert tuning to further tune the model after it is trained, so its performance is probably higher than reported in this paper.
 
-In our setup, NAMAS is trained with batch size of 64, embedding dimension of 64, Bag-of-Words dimension of 64, 64 LSTM cells per layer, initial learning rate of 0.1, and 20 epochs to reflect the reported setup in the original report. The modified GNMT system has 8 layers, each with 1024 LSTM cells, and a batch size of 64. We tested 3 sets of hyper-parameters using the Worker-Supervisor architecture, which are: 1. with the training guard enabled, start training with concatenated sentences at step 500, and start training the supervisor at step 200; 2. with the training guard enabled, start training with concatenated sentences at step 100, and start training the supervisor from the beginning; 3. with the training guard enabled, start training with concatenated sentences at step 10,000, and start training the supervisor at step 10,200. These will be referred to as WS-1, WS-2, and WS-3. During inference, we selected the rework threshold to be 0.5 and the maximum retries to be 10. Retry will be attempted when the discriminator score is lower than that threshold, but we cap the number of reattempts at 10.
+In our setup, NAMAS is trained with batch size of 64, embedding dimension of 64, Bag-of-Words dimension of 64, 64 LSTM cells per layer, initial learning rate of 0.1, and 20 epochs to reflect the reported setup in the original report. The worker GNMT was built with TensorFlow \cite{tensorflow2015-whitepaper} and the supervisor is built using Keras \cite{chollet2015keras} with a TensorFlow backend. The modified GNMT system has 8 layers, each with 1024 LSTM cells, and a batch size of 64, and the supervisor also has 8 LSTM layers, but only with 128 LSTM cells per layer. When concatenating sentences, we chose to retain the start-of-sentence token and the end-of-sentence token, because we thought these were clues for the encoder to realize this is a rework of a summarized sentence. We tested 3 sets of hyper-parameters using the Worker-Supervisor architecture, which are: 1. with the training guard enabled, start training with concatenated sentences at step 500, and start training the supervisor at step 200; 2. with the training guard enabled, start training with concatenated sentences at step 100, and start training the supervisor from the beginning; 3. with the training guard enabled, start training with concatenated sentences at step 10,000, and start training the supervisor at step 10,200. These will be referred to as WS-1, WS-2, and WS-3. During inference, we selected the rework threshold to be 0.5 and the maximum retries to be 10. Retry will be attempted when the discriminator score is lower than that threshold, but we cap the number of reattempts at 10. Last but not least, we include two setups with different ways of producing the new source sentence in order to compare with the source + summary approach. Specifically, one is the original Read-Again strategy by \cite{zeng2016efficient} where we simply concatenate the source and itself (source + source), and the other is to concatenate the source and a reversed version of itself (source + reversed source), which will be referred to as "Reversed-Source" setup in the rest of the paper.
 
 \begin{figure}[h]
 	\includegraphics[scale=0.6]{NAMAS}
@@ -138,10 +152,29 @@ In our setup, NAMAS is trained with batch size of 64, embedding dimension of 64,
 \section{Results}
 We used the ROUGE 2.0 system \cite{ganesan2015rouge} to evaluate our outputs with summaries produced by human summarizers. By default, this system evaluates with ROUGE-N (N-gram based) and ROUGE-L (summary level LCS). More specifically, ROUGE-N includes unigram (ROUGE-1) and bigram (ROUGE-2) . We will report the results for all the above metrics on the DUC-2003 and DUC-2004 summarization tasks separately.
 
-Overall, due to time and resource constraint, the 5 systems are trained with different number of steps. NAMAS finished training 15 epochs. GNMT finished training 6,900 steps. WS-1 finished training 21,3500 steps. WS-2 finished training 20,9300 steps. Lastly, WS-3 finished training 11,0600 steps.
+Overall, due to time and resource constraint, the systems are trained to different extents, and this recorded in Table~\ref{table:trainingsteps}. The name "WS-N Source" refers to the n-th setup of the Worker-Supervisor model decoding with only the source sentence, which is also the initial summary. Likewise, "WS-N Concat" refers to n-th setup of the Worker-Supervisor model decoding with concatenated source sentence and initial summary. Furthermore, "RA" refers to the Read-Again baseline, and "RS" refers to the Reversed-Source setup.
 
-\subsection{DUC-2003}
-The ROUGE 2.0 evaluation of DUC-2003 yields the results in Table~\ref{table:rougeduc2003}. The name "WS-N Source" refers to the n-th setup of the Worker-Supervisor model decoding with only the source sentence, which is also the initial summary. Likewise, "WS-N Concat" refers to n-th setup of the Worker-Supervisor model decoding with concatenated source sentence and initial summary. Furthermore, "RA" refers to the Read-Again baseline, and "RS" refers to the Reversed-Source setup. The baseline NAMAS model performs better than all other systems, followed by WS-1 with source only.
+\begin{table}[h]
+	\centering
+	\begin{tabular}{c c c c}
+		Model & Steps or epochs trained \\
+		\hline
+		WS-1 & 21,3500 steps \\
+		WS-2 & 20,930 steps \\
+		WS-3 & 11,600 steps \\
+		\hline
+		NAMAS & 20 epochs \\
+		GNMT & 55,100 steps \\
+		RA & 50,200 steps \\
+		RS &  33,100 steps \\
+	\end{tabular}
+	\caption{Amount of training on each setup at the time of the report}
+	\label{table:trainingsteps}
+\end{table}
+
+The ROUGE 2.0 evaluation of DUC-2003 yields the results in Table~\ref{table:rougeduc2003}, and its evaluation of DUC-2004 is recorded in Table~\ref{table:rougeduc2004}.
+
+In the DUC-2003 task, the performance of Read-Again and Reversed-Source setup surpassed that other systems. More importantly, the score increased after their strategies are applied (that is, when the concatenated sentences are used as inputs). There is around three points increase for Read-Again setup and about 0.5 points increase for Reversed-Source, but Reversed-Source produced overall higher score than Read-Again. Their scores are followed by NAMAS, GNMT, WS-1, WS-2, and WS-3. All WS-N system did not see the score increase from using concatenated sources. The score decreased by around three points for WS-1 and WS-2, and it dropped significantly for WS-3.
 
 \begin{table}[h]
 	\begin{tabular}{c c c c}
@@ -165,7 +198,31 @@ The ROUGE 2.0 evaluation of DUC-2003 yields the results in Table~\ref{table:roug
 	\label{table:rougeduc2003}
 \end{table}
 
-There are some sample summaries from this task:
+\begin{table}[h]
+	\begin{tabular}{c c c c}
+		Model & ROUGE-1 & ROUGE-2 & ROUGE-L \\
+		\hline
+		WS-1 Source & 34.613 & 6.061 & 30.515 \\
+		WS-1 Concat & 27.431 & 4.225 & 25.742 \\
+		WS-2 Source & 30.969 & 4.656 & 27.895 \\
+		WS-2 Concat & 25.516 & 3.618 & 22.618 \\
+		WS-3 Source & 23.369 & 3.410 & 19.324 \\
+		WS-3 Concat & 2.985 & 0.063 & 2.648 \\
+		\hline
+		NAMAS & 40.190 & 9.730& 39.074 \\
+		GNMT & 40.19 & 8.021 & 37.443 \\
+		RA Source & 42.928 & 10.089 & 40.25 \\
+		RA Concat & 40.236 & 9.266 & 37.578 \\
+		RS Source & 44.007 & 9.931 & 40.579 \\
+		RS Concat & 41.67 & 9.425 & 37.131 \\
+	\end{tabular}
+	\caption{ROUGE 2.0 evaluation results on DUC-2004 summarization task}
+	\label{table:rougeduc2004}
+\end{table}
+
+In the DUC-2004 task, however, NAMAS and GNMT took the lead, followed by Read-Again and Reversed-Source, and then WS-N systems. It is also noted that neither RA nor RS produced better summaries using concatenated sentences this time, unlike in the DUC-2003 task. Nonetheless, all WS-N systems also failed to produce better summaries with concatenated inputs.
+
+Some example summaries are reported in Table~\ref{table:sampleduc2003} and Table~\ref{table:sampleduc2004} for further analysis later.
 
 \begin{table}[h]
 	\begin{tabular}{p{40pt} p{170pt}}
@@ -192,33 +249,6 @@ There are some sample summaries from this task:
 	\caption{Sample summaries on DUC-2003 summarization task}
 	\label{table:sampleduc2003}
 \end{table}
-
-\subsection{DUC-2004}
-The ROUGE 2.0 evaluation of DUC-2004 yields the results in Table~\ref{table:rougeduc2004}. Like the result for DUC-2003, the baseline NAMAS model performs better than all other systems, followed by WS-1 with source only.
-
-\begin{table}[h]
-	\begin{tabular}{c c c c}
-		Model & ROUGE-1 & ROUGE-2 & ROUGE-L \\
-		\hline
-		WS-1 Source & 34.613 & 6.061 & 30.515 \\
-		WS-1 Concat & 27.431 & 4.225 & 25.742 \\
-		WS-2 Source & 30.969 & 4.656 & 27.895 \\
-		WS-2 Concat & 25.516 & 3.618 & 22.618 \\
-		WS-3 Source & 23.369 & 3.410 & 19.324 \\
-		WS-3 Concat & 2.985 & 0.063 & 2.648 \\
-		\hline
-		NAMAS & 40.190 & 9.730& 39.074 \\
-		GNMT & 40.19 & 8.021 & 37.443 \\
-		RA Source & 42.928 & 10.089 & 40.25 \\
-		RA Concat & 40.236 & 9.266 & 37.578 \\
-		RS Source & 44.007 & 9.931 & 40.579 \\
-		RS Concat & 41.67 & 9.425 & 37.131 \\
-	\end{tabular}
-	\caption{ROUGE 2.0 evaluation results on DUC-2004 summarization task}
-	\label{table:rougeduc2004}
-\end{table}
-
-There are some sample summaries from this task:
 
 \begin{table}[h]
 	\begin{tabular}{p{40pt} p{170pt}}
